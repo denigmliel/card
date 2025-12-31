@@ -507,10 +507,8 @@
         <div class="loader-text">Loading Memories</div>
     </div>
 
-    <audio id="bgm" preload="auto" loop>
-        <source src="./audio/lagu.mp3" type="audio/mpeg">
-        <source src="./audio/lagu.ogg" type="audio/ogg">
-        <source src="./audio/lagu.wav" type="audio/wav">
+    <audio id="bgm" preload="auto">
+        <source src="./lagu/lagu%20track.mp3" type="audio/mpeg">
     </audio>
 
     <div id="canvas-container" class="intro-hidden"></div>
@@ -827,10 +825,12 @@
             bgm = document.getElementById('bgm');
             if (!bgm) return;
             bgm.volume = AUDIO_CONFIG.volume;
+            bgm.loop = false;
         }
 
         function startAudio() {
             if (!bgm || audioStarted) return;
+            bgm.currentTime = 0;
             const playPromise = bgm.play();
             if (playPromise && typeof playPromise.then === 'function') {
                 playPromise.then(() => {
