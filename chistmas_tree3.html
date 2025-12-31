@@ -507,6 +507,12 @@
         <div class="loader-text">Loading Memories</div>
     </div>
 
+    <audio id="bgm" preload="auto" loop>
+        <source src="./audio/lagu.mp3" type="audio/mpeg">
+        <source src="./audio/lagu.ogg" type="audio/ogg">
+        <source src="./audio/lagu.wav" type="audio/wav">
+    </audio>
+
     <div id="canvas-container" class="intro-hidden"></div>
 
     <canvas id="fireworks-canvas"></canvas>
@@ -616,6 +622,9 @@
             palette: ['#ffdd88', '#ff8c6b', '#7fd1ff', '#ffd1ff', '#a6ffda', '#ffe066', '#ff6fb1', '#66ff99', '#ffd26f'],
             accent: ['#ffffff', '#fff2c6']
         };
+        const AUDIO_CONFIG = {
+            volume: 0.55
+        };
         const TAU = Math.PI * 2;
         const raycaster = new THREE.Raycaster();
         const pointer = new THREE.Vector2();
@@ -644,12 +653,15 @@
         let renderActive = false;
         let loadedPhotoCount = 0;
         let photoWarningTimer = 0;
+        let bgm;
+        let audioStarted = false;
 
         async function init() {
             initThree();
             setupEnvironment(); 
             setupLights();
             createTextures();
+            setupAudio();
             createParticles(); 
             createDust();
             setupIntroOverlay();
@@ -811,6 +823,26 @@
             caneTexture.repeat.set(3, 3);
         }
 
+        function setupAudio() {
+            bgm = document.getElementById('bgm');
+            if (!bgm) return;
+            bgm.volume = AUDIO_CONFIG.volume;
+        }
+
+        function startAudio() {
+            if (!bgm || audioStarted) return;
+            const playPromise = bgm.play();
+            if (playPromise && typeof playPromise.then === 'function') {
+                playPromise.then(() => {
+                    audioStarted = true;
+                }).catch(() => {
+                    audioStarted = false;
+                });
+            } else {
+                audioStarted = true;
+            }
+        }
+
         function setupIntroOverlay() {
             fireworksCanvas = document.getElementById('fireworks-canvas');
             if (fireworksCanvas) {
@@ -858,6 +890,7 @@
                 setTimeout(() => introLayer.remove(), 800);
             }
 
+            startAudio();
             stopFireworks();
             setupGiftSequence();
             startRenderLoop();
@@ -872,6 +905,7 @@
         function handleGiftClick(e) {
             if (!introRevealed) return;
             if (performance.now() - giftClickArmedAt < 300) return;
+            startAudio();
 
             const target = e.target;
             if (target && target.closest) {
