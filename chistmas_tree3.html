@@ -436,6 +436,10 @@
             transform: translate(-50%, 0) scale(1);
         }
 
+        #gift-layer.gift-open {
+            pointer-events: auto;
+        }
+
         .letter-paper {
             position: relative;
             background:
@@ -445,7 +449,7 @@
             color: #3a2b1c;
             border: 1px solid rgba(181, 140, 70, 0.65);
             border-radius: 12px;
-            padding: 22px 28px 24px;
+            padding: 22px 28px 60px;
             box-shadow:
                 0 24px 50px rgba(0, 0, 0, 0.4),
                 0 4px 0 rgba(255, 255, 255, 0.5) inset,
@@ -489,6 +493,28 @@
             letter-spacing: 0.2px;
             overflow: visible;
             padding-right: 0;
+        }
+
+        #finale-next {
+            position: absolute;
+            right: 18px;
+            bottom: 16px;
+            border: none;
+            border-radius: 999px;
+            padding: 10px 18px;
+            background: linear-gradient(135deg, #f7d98e 0%, #c8973a 100%);
+            color: #3a2b1c;
+            font-family: 'Cinzel', 'Times New Roman', serif;
+            font-size: 12px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            cursor: pointer;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.25);
+        }
+
+        #finale-next:disabled {
+            opacity: 0.6;
+            cursor: default;
         }
     </style>
     
@@ -551,6 +577,7 @@
             <div class="letter-paper">
                 <div class="letter-title">Untuk Cayang Ku ini</div>
                 <div class="letter-body">aaaaa aminnnn Happy New Year jugaa ya cayangg kuu, terimakasihh banyak untuk tahun 2025 yang sudah banyak menemani akuu, yang sudah selalu support aku dan sudah banyak membantu akuu terimakasihh banyak yaa babee, aku juga mohon maaf yaa cayangg kuu untuk tahun 2025 ini aku masih banyak salah na, aku masih membuat kamu marah, membuat kamu sedih, aku mohon maaf ya cayangg kuu, dan harapan aku untuk tahun 2026 nanti aku bisa berubah menjadi Deni yang lebih baik lagi yang bisa dengar dengaran yang bisa lebih pekka dan yang bisa selalu sayangin kamu di dalam situasi apapun itu ya cayangg, dan semoga harapan yang kamu ingin kan  di tahun 2026 ini semua terwujud ya cayangg aminn ya tuhann, di berikan kesehatan selalu dan rezeki yang melimpahh ya cayangg kuu,  kira na Tuhan Yesus Memberkati cayangg kuu ini, I LOVEEEE UUUUUU MOREEE CAYANGG KUU dan SELAMAT TAHUN BARU 2026 babee 🥳🥳🥳🥳🥳🥳🥳❤️‍🔥❤️‍🔥❤️‍🔥❤️‍🔥❤️‍🔥</div>
+                <button id="finale-next" type="button">Selanjutnya</button>
             </div>
         </div>
     </div>
@@ -618,6 +645,10 @@
             fade: 0.16,
             burstDelayMin: 0.22,
             burstDelayMax: 0.5,
+            finaleBurstMin: 0.12,
+            finaleBurstMax: 0.26,
+            finaleTextAt: 5.5,
+            finaleHold: 4.5,
             maxParticles: 2000,
             flickerBase: 0.82,
             flickerAmp: 0.18,
@@ -659,6 +690,10 @@
         let photoWarningTimer = 0;
         let bgm;
         let audioStarted = false;
+        let fireworksMode = 'intro';
+        let finaleTextActive = false;
+        let finaleHoldUntil = 0;
+        let finaleStarted = false;
 
         async function init() {
             initThree();
@@ -850,11 +885,21 @@
         }
 
         function setupIntroOverlay() {
-            fireworksCanvas = document.getElementById('fireworks-canvas');
-            if (fireworksCanvas) {
-                fireworksCtx = fireworksCanvas.getContext('2d');
-                resizeFireworksCanvas();
+            ensureFireworksCanvas();
+        }
+
+        function ensureFireworksCanvas() {
+            if (!fireworksCanvas) {
+                fireworksCanvas = document.getElementById('fireworks-canvas');
             }
+            if (!fireworksCanvas) {
+                fireworksCanvas = document.createElement('canvas');
+                fireworksCanvas.id = 'fireworks-canvas';
+                document.body.appendChild(fireworksCanvas);
+            }
+            fireworksCanvas.classList.remove('intro-hidden');
+            fireworksCtx = fireworksCanvas.getContext('2d');
+            resizeFireworksCanvas();
         }
 
         function resizeFireworksCanvas() {
@@ -1017,6 +1062,26 @@
             giftState = 'open';
         }
 
+        function startFinaleSequence() {
+            if (finaleStarted || giftState !== 'open') return;
+            finaleStarted = true;
+            giftState = 'finale';
+
+            const button = document.getElementById('finale-next');
+            if (button) button.disabled = true;
+
+            const layer = document.getElementById('gift-layer');
+            if (layer) {
+                layer.classList.remove('gift-open', 'gift-visible', 'gift-clickable');
+            }
+            const box = document.getElementById('gift-box');
+            if (box) box.classList.remove('gift-open');
+            hidePhotoWarning();
+
+            ensureFireworksCanvas();
+            startFireworks('finale');
+        }
+
         function startIntroSequence() {
             const introLayer = document.getElementById('intro-layer');
             const countdownEl = document.getElementById('countdown');
@@ -1039,13 +1104,22 @@
             }, 1000);
         }
 
-        function startFireworks() {
+        function startFireworks(mode = 'intro') {
+            if (!fireworksCtx) {
+                ensureFireworksCanvas();
+            }
             if (fireworksActive || !fireworksCtx) return;
+            fireworksMode = mode;
             fireworksActive = true;
             fireworksLastFrame = performance.now();
             fireworksTime = 0;
             fireworksBurstTimer = 0;
-            fireworksNextBurst = randRange(FIREWORKS.burstDelayMin, FIREWORKS.burstDelayMax);
+            const burstMin = mode === 'finale' ? FIREWORKS.finaleBurstMin : FIREWORKS.burstDelayMin;
+            const burstMax = mode === 'finale' ? FIREWORKS.finaleBurstMax : FIREWORKS.burstDelayMax;
+            fireworksNextBurst = randRange(burstMin, burstMax);
+            finaleTextActive = false;
+            finaleHoldUntil = 0;
+            if (fireworksCanvas) fireworksCanvas.classList.remove('intro-hidden');
             requestAnimationFrame(animateFireworks);
         }
 
@@ -1056,6 +1130,7 @@
             fireworksBurstTimer = 0;
             fireworksTime = 0;
             fireworksNextBurst = 0;
+            fireworksMode = 'intro';
 
             if (fireworksCtx) {
                 fireworksCtx.clearRect(0, 0, fireworksWidth, fireworksHeight);
@@ -1063,8 +1138,61 @@
 
             if (fireworksCanvas) {
                 fireworksCanvas.classList.add('intro-hidden');
-                setTimeout(() => fireworksCanvas.remove(), 800);
             }
+        }
+
+        function triggerFinaleBurst() {
+            const centerX = fireworksWidth * 0.5;
+            const centerY = fireworksHeight * 0.35;
+            const bursts = 5;
+            for (let i = 0; i < bursts; i++) {
+                if (fireworksParticles.length > FIREWORKS.maxParticles * 0.8) break;
+                const offsetX = randRange(-140, 140);
+                const offsetY = randRange(-90, 90);
+                const colorA = pick(FIREWORKS.palette);
+                const colorB = pick(FIREWORKS.palette);
+                const x = centerX + offsetX;
+                const y = centerY + offsetY;
+                createChrysanthemumBurst(x, y, colorA, colorB);
+                createCoreFlash(x, y, pick(FIREWORKS.accent));
+                if (Math.random() < 0.7) {
+                    createCrackleBurst(x, y, pick(FIREWORKS.accent));
+                }
+            }
+        }
+
+        function finalizeFinale() {
+            fireworksActive = false;
+            fireworksParticles = [];
+            fireworksBurstTimer = 0;
+            fireworksTime = 0;
+            fireworksNextBurst = 0;
+            if (fireworksCtx) {
+                fireworksCtx.clearRect(0, 0, fireworksWidth, fireworksHeight);
+                drawFinaleText(1);
+            }
+        }
+
+        function drawFinaleText(alpha = 1) {
+            if (!fireworksCtx) return;
+            const size = Math.max(42, Math.min(fireworksWidth * 0.18, fireworksHeight * 0.22, 160));
+            const x = fireworksWidth * 0.5;
+            const y = fireworksHeight * 0.42;
+            fireworksCtx.save();
+            fireworksCtx.globalCompositeOperation = 'lighter';
+            fireworksCtx.globalAlpha = Math.min(Math.max(alpha, 0), 1);
+            fireworksCtx.font = `700 ${size}px 'Cinzel', 'Times New Roman', serif`;
+            fireworksCtx.textAlign = 'center';
+            fireworksCtx.textBaseline = 'middle';
+            fireworksCtx.fillStyle = '#fff4c6';
+            fireworksCtx.shadowBlur = 28;
+            fireworksCtx.shadowColor = 'rgba(255, 214, 122, 0.9)';
+            fireworksCtx.fillText('I LOVE U', x, y);
+            fireworksCtx.shadowBlur = 0;
+            fireworksCtx.lineWidth = Math.max(2, size * 0.04);
+            fireworksCtx.strokeStyle = 'rgba(255, 231, 180, 0.7)';
+            fireworksCtx.strokeText('I LOVE U', x, y);
+            fireworksCtx.restore();
         }
 
         function animateFireworks(time) {
@@ -1074,16 +1202,36 @@
             fireworksTime += dt;
             fireworksBurstTimer += dt;
 
+            const isFinale = fireworksMode === 'finale';
+            const burstMin = isFinale ? FIREWORKS.finaleBurstMin : FIREWORKS.burstDelayMin;
+            const burstMax = isFinale ? FIREWORKS.finaleBurstMax : FIREWORKS.burstDelayMax;
+
+            if (isFinale && !finaleTextActive && fireworksTime >= FIREWORKS.finaleTextAt) {
+                finaleTextActive = true;
+                finaleHoldUntil = fireworksTime + FIREWORKS.finaleHold;
+                triggerFinaleBurst();
+            }
+
             if (fireworksBurstTimer >= fireworksNextBurst) {
                 fireworksBurstTimer = 0;
-                fireworksNextBurst = randRange(FIREWORKS.burstDelayMin, FIREWORKS.burstDelayMax);
-                const salvo = Math.random() < 0.4 ? 2 : 1;
-                for (let i = 0; i < salvo; i++) {
-                    createFireworkBurst();
+                fireworksNextBurst = randRange(burstMin, burstMax);
+                if (!isFinale || fireworksTime < FIREWORKS.finaleTextAt) {
+                    const salvo = isFinale ? (Math.random() < 0.6 ? 3 : 2) : (Math.random() < 0.4 ? 2 : 1);
+                    for (let i = 0; i < salvo; i++) {
+                        createFireworkBurst();
+                    }
                 }
             }
 
             updateFireworks(dt);
+            if (isFinale && finaleTextActive) {
+                const fadeIn = Math.min((fireworksTime - FIREWORKS.finaleTextAt) / 0.8, 1);
+                drawFinaleText(fadeIn);
+                if (fireworksTime >= finaleHoldUntil) {
+                    finalizeFinale();
+                    return;
+                }
+            }
             requestAnimationFrame(animateFireworks);
         }
 
@@ -1804,6 +1952,14 @@
             const folderInput = document.getElementById('folder-input');
             if (fileInput) fileInput.addEventListener('change', handleImageUpload);
             if (folderInput) folderInput.addEventListener('change', handleImageUpload);
+
+            const finaleButton = document.getElementById('finale-next');
+            if (finaleButton) {
+                finaleButton.addEventListener('click', (event) => {
+                    event.stopPropagation();
+                    startFinaleSequence();
+                });
+            }
             
             window.addEventListener('keydown', (e) => {
                 if (e.key.toLowerCase() === 'h') {
